@@ -65,3 +65,28 @@ class Server:
                 self.handle_client(client)
 
             self.logger.info(f'closed on {(self.host, self.port)}')
+
+class Client:
+    def __init__(self, protocol_handler, host=HOST, port=PORT):
+        self.host = host
+        self.port = port
+        self.protocol_handler = protocol_handler
+        self.logger = logging.getLogger('Client')
+        
+    
+    def run(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((self.host, self.port))
+            send_text = 'Hello '*5
+            self.protocol_handler.send(s, send_text)
+            self.logger.info(f'send "{send_text}"')
+            send_text = 'World '*5
+            self.protocol_handler.send(s, send_text)
+            self.logger.info(f'send "{send_text}"')
+            recv_text = self.protocol_handler.recv(s)
+            self.logger.info(f'recv "{recv_text}"')
+            send_text = 'Bye bye '*5
+            self.protocol_handler.send(s, send_text)
+            self.logger.info(f'send "{send_text}"')
+            recv_text = self.protocol_handler.recv(s)
+            self.logger.info(f'recv "{recv_text}"')
