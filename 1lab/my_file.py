@@ -19,7 +19,7 @@ logging.basicConfig(
 )
 
 class RecvSendMsgsProtocol(ABC):
-    MSG_SIZE = 16 # маленький размер (если в байтах)
+    MSG_SIZE = 16 # маленький размер
     
     @abstractmethod
     def recv(self, connected_socket):
