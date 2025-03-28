@@ -6,7 +6,6 @@ import sys
 import time
 import math
 from abc import ABC, abstractmethod
-#пытаюсь получить 7 баллов за коммит
 
 file_handler = logging.FileHandler(filename='tmp.log')
 stdout_handler = logging.StreamHandler(stream=sys.stdout)
