@@ -49,19 +49,25 @@ class Server:
         if recv_text in self.commands.keys():
             self.commands[recv_text]
 
+            tree =self.commands[recv_text]
+
+            self.protocol_handler.send(client_socket, json.dumps(tree, indent=2, ensure_ascii=False))
+            self.logger.info(f'send tree file')
+
+
     def run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((self.host, self.port))
             self.logger.info(f'started on {(self.host, self.port)}')
             s.listen(1)
-#             while True:
-            client, addr = s.accept()
-            with client:
-                self.logger.info(f'connect {addr}')
-                self.handle_client(client)
+            while True:
+                client, addr = s.accept()
+                with client:
+                    self.logger.info(f'connect {addr}')
+                    self.handle_client(client)
 
-            self.logger.info(f'closed on {(self.host, self.port)}')
+        self.logger.info(f'closed on {(self.host, self.port)}')
 
     def is_executable(self, file_path):
     # Проверяет, является ли файл исполняемым (есть ли у него право на исполнения, exe и т.д)
@@ -107,9 +113,11 @@ class Server:
                 # Пропускаем папки без доступа
                 continue
 
-        with open(f"{os.path.abspath(__file__)[:-7]}\\ans.json", "w+") as f:
+        with open(f"{os.path.abspath(__file__)[:-7]}\\ans_server.json", "w+") as f:
             json.dump(tree, f)
-
+        
+        return tree
+        
 class Client:
     def __init__(self, protocol_handler, host=HOST, port=PORT):
         self.host = host
@@ -117,13 +125,31 @@ class Client:
         self.protocol_handler = protocol_handler
         self.logger = logging.getLogger('Client')
 
-
     def run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port))
             send_text = 'make_me_a_tree'
             self.protocol_handler.send(s, send_text)
             self.logger.info(f'send "{send_text}"')
+
+            
+################################################################################
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            s.bind((self.host, self.port))
+            self.logger.info(f'started on {(self.host, self.port)}')
+            s.listen(1)
+            while True:
+                server, addr = s.accept()
+                with server:
+                    self.logger.info(f'connect {addr}')
+                    self.handle_server(server)
+
+    def handle_server(self, server_socket):
+        recv_text = self.protocol_handler.recv(server_socket)
+        self.logger.info(f'recv tree file')
+        with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
+            json.dump(recv_text, f)
 
 class SizeProtocol(RecvSendMsgsProtocol):
     def recv(self, connected_socket):
