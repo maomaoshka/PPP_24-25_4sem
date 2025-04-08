@@ -193,7 +193,7 @@ def test(protocol_cls):
     t_c.join() # Ждем завершения потоков
     t_s.join()
 
-test(SizeProtocol)
+# test(SizeProtocol)
 # test(NumberProtocol)
 # test(BlockingProtocol)
 
