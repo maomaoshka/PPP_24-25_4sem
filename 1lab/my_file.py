@@ -6,6 +6,8 @@ import sys
 import time
 import math
 from abc import ABC, abstractmethod
+import os
+import json
 
 
 file_handler = logging.FileHandler(filename='tmp.log')
@@ -44,16 +46,6 @@ class Server:
     def handle_client(self, client_socket):
         recv_text = self.protocol_handler.recv(client_socket)
         self.logger.info(f'recv "{recv_text}"')
-        # recv_text = self.protocol_handler.recv(client_socket)
-        # self.logger.info(f'recv "{recv_text}"')
-        # send_text = '?'*20
-        # self.protocol_handler.send(client_socket, send_text)
-        # self.logger.info(f'send "{send_text}"')
-        # recv_text = self.protocol_handler.recv(client_socket)
-        # self.logger.info(f'recv "{recv_text}"')
-        # send_text = '!'*20
-        # self.protocol_handler.send(client_socket, send_text)
-        # self.logger.info(f'send "{send_text}"')
 
 
     def run(self):
@@ -70,6 +62,51 @@ class Server:
 
             self.logger.info(f'closed on {(self.host, self.port)}')
 
+    def is_executable(self, file_path):
+    # Проверяет, является ли файл исполняемым (есть ли у него право на исполнения, exe и т.д)
+    # От разные системы по разному понимают исполняемые файлы, поэтому есть разделение на linux и windows
+        if os.name == 'posix':  # Unix-системы (Linux, macOS)
+            return os.access(file_path, os.X_OK)
+        else:  # Windows
+            return file_path.lower().endswith(('.exe', '.bat', '.cmd', '.ps1'))
+
+    def build_path_tree(self):
+        # Возвращает список всех исполняемых файлов в PATH.
+        path_dirs = os.environ.get('PATH', '').split(os.pathsep)
+        tree = {}
+
+        for dir_path in path_dirs:
+            # Пропускаем несуществующие директории
+            if not os.path.isdir(dir_path):
+                continue
+            # Разбиваем путь на части os.sep = '/'
+            parts = [p for p in dir_path.split(os.sep) if p]
+            # Корень дерева
+            current_level = tree
+            # Строим ветви для каждой папки (кроме последнего)
+            for part in parts[:-2]:
+                # Если папки нет, то создаем новую ветку
+                if part not in current_level:
+                    current_level[part] = {}
+                current_level = current_level[part]
+
+            # Последняя часть это самая глубокая папка с исполняемыми файлами
+            last_dir = parts[-1]
+
+            # # Добавляем её в дерево
+            current_level[last_dir] = []
+
+            # Добавляем исполняемые файлы из этой папки
+            try:
+                for file_name in os.listdir(dir_path):
+                    full_path = os.path.join(dir_path, file_name)
+                    if os.path.isfile(full_path) and is_executable(full_path):
+                        current_level[last_dir].append(file_name)
+            except:
+                # Пропускаем папки без доступа
+                continue
+        return tree
+
 class Client:
     def __init__(self, protocol_handler, host=HOST, port=PORT):
         self.host = host
@@ -84,16 +121,6 @@ class Client:
             send_text = 'Hello '*5
             self.protocol_handler.send(s, send_text)
             self.logger.info(f'send "{send_text}"')
-            # send_text = 'World '*5
-            # self.protocol_handler.send(s, send_text)
-            # self.logger.info(f'send "{send_text}"')
-            # recv_text = self.protocol_handler.recv(s)
-            # self.logger.info(f'recv "{recv_text}"')
-            # send_text = 'Bye bye '*5
-            # self.protocol_handler.send(s, send_text)
-            # self.logger.info(f'send "{send_text}"')
-            # recv_text = self.protocol_handler.recv(s)
-            # self.logger.info(f'recv "{recv_text}"')
 
 class SizeProtocol(RecvSendMsgsProtocol):
     def recv(self, connected_socket):
