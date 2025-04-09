@@ -61,11 +61,14 @@ class Server:
             s.bind((self.host, self.port))
             self.logger.info(f'started on {(self.host, self.port)}')
             s.listen(1)
-            while True:
-                client, addr = s.accept()
-                with client:
-                    self.logger.info(f'connect {addr}')
-                    self.handle_client(client)
+            #while True:
+            client, addr = s.accept()
+            with client:
+                self.logger.info(f'connect {addr}')
+                self.handle_client(client)
+            s.close()
+        
+        self.logger.info("Server stopped")
 
         self.logger.info(f'closed on {(self.host, self.port)}')
 
@@ -107,7 +110,7 @@ class Server:
             try:
                 for file_name in os.listdir(dir_path):
                     full_path = os.path.join(dir_path, file_name)
-                    if os.path.isfile(full_path) and is_executable(full_path):
+                    if os.path.isfile(full_path) and self.is_executable(full_path):
                         current_level[last_dir].append(file_name)
             except:
                 # Пропускаем папки без доступа
@@ -132,24 +135,16 @@ class Client:
             self.protocol_handler.send(s, send_text)
             self.logger.info(f'send "{send_text}"')
 
-            
-################################################################################
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind((self.host, self.port))
-            self.logger.info(f'started on {(self.host, self.port)}')
-            s.listen(1)
-            while True:
-                server, addr = s.accept()
-                with server:
-                    self.logger.info(f'connect {addr}')
-                    self.handle_server(server)
-
-    def handle_server(self, server_socket):
-        recv_text = self.protocol_handler.recv(server_socket)
-        self.logger.info(f'recv tree file')
+            recv_text = self.protocol_handler.recv(s)
+            self.logger.info(f'recv tree file')
+            s.close()
+            self.logger.info("Client stopped")
+        
+        # Сохраняем в файл
         with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
             json.dump(recv_text, f)
+        
+        self.logger.info(f'done!')
 
 class SizeProtocol(RecvSendMsgsProtocol):
     def recv(self, connected_socket):
