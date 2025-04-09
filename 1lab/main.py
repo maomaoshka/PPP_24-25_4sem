@@ -117,7 +117,7 @@ class Server:
                 continue
 
         with open(f"{os.path.abspath(__file__)[:-7]}\\ans_server.json", "w+") as f:
-            json.dump(tree, f)
+            f.write(json.dumps(tree, indent=2, ensure_ascii=False))
         
         return tree
         
@@ -142,7 +142,7 @@ class Client:
         
         # Сохраняем в файл
         with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
-            json.dump(recv_text, f)
+            f.write(recv_text)
         
         self.logger.info(f'done!')
 
