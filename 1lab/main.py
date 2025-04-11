@@ -41,18 +41,37 @@ class Server:
         self.port = port
         self.protocol_handler = protocol_handler
         self.logger = logging.getLogger('Server')
-        self.commands ={'make_me_a_tree': self.build_path_tree()}
+        self.commands ={'make_me_a_tree': self.build_path_tree(),
+                        'get_env': self.give_env()}
+
+# def update_environment(self):
+#     """Обновляет информацию о программах и окружении"""
+#     return self.build_path_tree()  # Или более сложная логика обновления
+
+    def give_env(self):
+        return dict(os.environ)
+
+    def set_env(self,var,val):
+        os.environ[var] = val
+        return f"Переменная {var} установлена со значением {val}"
 
     def handle_client(self, client_socket):
         recv_text = self.protocol_handler.recv(client_socket)
         self.logger.info(f'recv "{recv_text}"')
-        if recv_text in self.commands.keys():
+        if recv_text[:7]=='set_env':
+            var =recv_text.split(' ')[1]
+            val =recv_text.split(' ')[2]
+            self.set_env(var,val)
+            res =self.set_env(var,val)
+        elif recv_text in self.commands.keys():
             self.commands[recv_text]
 
-            tree =self.commands[recv_text]
+            res =self.commands[recv_text]
 
-            self.protocol_handler.send(client_socket, json.dumps(tree, indent=2, ensure_ascii=False))
-            self.logger.info(f'send tree file')
+        print(f"Отправляемая строка: {res}") 
+
+        self.protocol_handler.send(client_socket, json.dumps(res, indent=2, ensure_ascii=False))
+        self.logger.info(f'sent result')
 
 
     def run(self):
@@ -66,6 +85,7 @@ class Server:
             with client:
                 self.logger.info(f'connect {addr}')
                 self.handle_client(client)
+            time.sleep(0.1)
             s.close()
         
         self.logger.info("Server stopped")
@@ -129,22 +149,40 @@ class Client:
         self.logger = logging.getLogger('Client')
 
     def run(self):
+        try:
+        print("1. Получить дерево файлов\n2. Получить переменные окружения\n3. Установить переменную")
+        choice = input("Выбор: ")
+
+        if choice=='1':
+            send_text = 'make_me_a_tree'
+        elif choice=='2':
+            send_text ='get_env'
+        elif  choice=='3':
+            var = input("Имя переменной: ")
+            value = input("Значение: ")
+            send_text =f'set_env {var} {value}'
+
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.host, self.port))
-            send_text = 'make_me_a_tree'
             self.protocol_handler.send(s, send_text)
             self.logger.info(f'send "{send_text}"')
 
             recv_text = self.protocol_handler.recv(s)
-            self.logger.info(f'recv tree file')
-            s.close()
-            self.logger.info("Client stopped")
+            print(f"Получено {len(recv_text)} байт")
+            self.logger.info(f'recv ans')
         
         # Сохраняем в файл
-        with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
-            f.write(recv_text)
+        if choice==1:
+            with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
+                f.write(recv_text)
+        else:
+            print(recv_text)
         
         self.logger.info(f'done!')
+
+        finally:
+        s.close()
+            self.logger.info("Client stopped")
 
 class SizeProtocol(RecvSendMsgsProtocol):
     def recv(self, connected_socket):
