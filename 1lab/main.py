@@ -54,6 +54,7 @@ class Server:
     def set_env(self,var,val):
         os.environ[var] = val
         ans =f"{var} variable is now set to {val}"
+        #print(f"Текущие переменные: {os.environ.get(var)}") #проверка, что переменная установилась
         #print(ans)
         return ans
 
@@ -61,8 +62,8 @@ class Server:
         recv_text = self.protocol_handler.recv(client_socket)
         self.logger.info(f'recv "{recv_text}"')
         if recv_text[:7]=='set_env':
-            var =recv_text.split(' ')[1]
-            val =recv_text.split(' ')[2]
+            var =recv_text.split(' ',maxsplit=2)[1]
+            val =recv_text.split(' ',maxsplit=2)[2]
             res =self.set_env(var,val)
             #print(res)
         elif recv_text in self.commands.keys():
