@@ -46,14 +46,16 @@ class Server:
 
 # def update_environment(self):
 #     """Обновляет информацию о программах и окружении"""
-#     return self.build_path_tree()  # Или более сложная логика обновления
+#     return self.build_path_tree()
 
     def give_env(self):
         return dict(os.environ)
 
     def set_env(self,var,val):
         os.environ[var] = val
-        return f"Переменная {var} установлена со значением {val}"
+        ans =f"{var} variable is now set to {val}"
+        #print(ans)
+        return ans
 
     def handle_client(self, client_socket):
         recv_text = self.protocol_handler.recv(client_socket)
@@ -61,15 +63,15 @@ class Server:
         if recv_text[:7]=='set_env':
             var =recv_text.split(' ')[1]
             val =recv_text.split(' ')[2]
-            self.set_env(var,val)
             res =self.set_env(var,val)
+            #print(res)
         elif recv_text in self.commands.keys():
             self.commands[recv_text]
 
             res =self.commands[recv_text]
 
-        print(f"Отправляемая строка: {res}") 
-
+        #print(f"Отправляемая строка: {res}") 
+        print(f"Отправлено {len(res)} байт")
         self.protocol_handler.send(client_socket, json.dumps(res, indent=2, ensure_ascii=False))
         self.logger.info(f'sent result')
 
@@ -87,7 +89,8 @@ class Server:
                     self.logger.info(f'connect {addr}')
                     self.handle_client(client)
 
-        finally:    
+        finally:
+            time.sleep(0.5)
             s.close()
             self.logger.info("Server stopped")
             self.logger.info(f'closed on {(self.host, self.port)}')
@@ -169,10 +172,11 @@ class Client:
 
                 recv_text = self.protocol_handler.recv(s)
                 print(f"Получено {len(recv_text)} байт")
+                print(recv_text)
                 self.logger.info(f'recv ans')
             
             # Сохраняем в файл
-            if choice==1:
+            if choice=='1':
                 with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
                     f.write(recv_text)
             else:
