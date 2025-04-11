@@ -13,7 +13,6 @@ import json
 file_handler = logging.FileHandler(filename='tmp.log')
 stdout_handler = logging.StreamHandler(stream=sys.stdout)
 handlers = [stdout_handler]
-# handlers = [file_handler, stdout_handler]
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -25,7 +24,7 @@ HOST = 'localhost'
 PORT = 12345
 
 class RecvSendMsgsProtocol(ABC):
-    MSG_SIZE = 16 # маленький размер
+    MSG_SIZE = 16
 
     @abstractmethod
     def recv(self, connected_socket):
@@ -43,10 +42,6 @@ class Server:
         self.logger = logging.getLogger('Server')
         self.commands ={'make_me_a_tree': self.build_path_tree(),
                         'get_env': self.give_env()}
-
-# def update_environment(self):
-#     """Обновляет информацию о программах и окружении"""
-#     return self.build_path_tree()
 
     def give_env(self):
         return dict(os.environ)
@@ -72,7 +67,7 @@ class Server:
             res =self.commands[recv_text]
 
         #print(f"Отправляемая строка: {res}") 
-        print(f"Отправлено {len(res)} байт")
+        #print(f"Отправлено {len(res)} байт")
         self.protocol_handler.send(client_socket, json.dumps(res, indent=2, ensure_ascii=False))
         self.logger.info(f'sent result')
 
@@ -98,7 +93,7 @@ class Server:
 
     def is_executable(self, file_path):
     # Проверяет, является ли файл исполняемым (есть ли у него право на исполнения, exe и т.д)
-    # От разные системы по разному понимают исполняемые файлы, поэтому есть разделение на linux и windows
+    # Разные системы по-разному понимают исполняемые файлы, поэтому есть разделение на linux и windows
         if os.name == 'posix':  # Unix-системы (Linux, macOS)
             return os.access(file_path, os.X_OK)
         else:  # Windows
@@ -142,7 +137,7 @@ class Server:
 
         with open(f"{os.path.abspath(__file__)[:-7]}\\ans_server.json", "w+") as f:
             f.write(json.dumps(tree, indent=2, ensure_ascii=False))
-        
+
         return tree
         
 class Client:
@@ -154,17 +149,17 @@ class Client:
 
     def run(self):
         try:
-            print("1. Получить дерево файлов\n2. Получить переменные окружения\n3. Установить переменную")
+            print("1. Получить дерево файлов\n2. Получить переменные окружения\n3. Установить переменную\n4. Обновление информации о файлах")
             choice = input("Выбор: ")
 
-            if choice=='1':
+            if choice=='1' or choice=='4':
                 send_text = 'make_me_a_tree'
             elif choice=='2':
                 send_text ='get_env'
-            elif  choice=='3':
+            elif choice=='3':
                 var = input("Имя переменной: ")
                 value = input("Значение: ")
-                send_text =f'set_env {var} {value}'
+                send_text = f'set_env {var} {value}'
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.connect((self.host, self.port))
@@ -173,11 +168,11 @@ class Client:
 
                 recv_text = self.protocol_handler.recv(s)
                 print(f"Получено {len(recv_text)} байт")
-                print(recv_text)
+                #print(recv_text)
                 self.logger.info(f'recv ans')
             
             # Сохраняем в файл
-            if choice=='1':
+            if choice=='1' or choice=='4':
                 with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
                     f.write(recv_text)
             else:
@@ -212,9 +207,9 @@ def test(protocol_cls):
     t_s = threading.Thread(target=Server.run, args=[server]) # Почему так? Потому что self - это на самом деле первый аргумент
     t_c = threading.Thread(target=client.run, args=[]) # А это второй вариант той же записи
     t_s.start()
-    time.sleep(1) # Чтоб сервер успел запуститься
+    time.sleep(1)
     t_c.start()
-    t_c.join() # Ждем завершения потоков
+    t_c.join()
     t_s.join()
 
 
