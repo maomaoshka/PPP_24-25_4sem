@@ -75,22 +75,22 @@ class Server:
 
 
     def run(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            s.bind((self.host, self.port))
-            self.logger.info(f'started on {(self.host, self.port)}')
-            s.listen(1)
-            #while True:
-            client, addr = s.accept()
-            with client:
-                self.logger.info(f'connect {addr}')
-                self.handle_client(client)
-            time.sleep(0.1)
-            s.close()
-        
-        self.logger.info("Server stopped")
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind((self.host, self.port))
+                self.logger.info(f'started on {(self.host, self.port)}')
+                s.listen(1)
+                #while True:
+                client, addr = s.accept()
+                with client:
+                    self.logger.info(f'connect {addr}')
+                    self.handle_client(client)
 
-        self.logger.info(f'closed on {(self.host, self.port)}')
+        finally:    
+            s.close()
+            self.logger.info("Server stopped")
+            self.logger.info(f'closed on {(self.host, self.port)}')
 
     def is_executable(self, file_path):
     # Проверяет, является ли файл исполняемым (есть ли у него право на исполнения, exe и т.д)
@@ -150,38 +150,38 @@ class Client:
 
     def run(self):
         try:
-        print("1. Получить дерево файлов\n2. Получить переменные окружения\n3. Установить переменную")
-        choice = input("Выбор: ")
+            print("1. Получить дерево файлов\n2. Получить переменные окружения\n3. Установить переменную")
+            choice = input("Выбор: ")
 
-        if choice=='1':
-            send_text = 'make_me_a_tree'
-        elif choice=='2':
-            send_text ='get_env'
-        elif  choice=='3':
-            var = input("Имя переменной: ")
-            value = input("Значение: ")
-            send_text =f'set_env {var} {value}'
+            if choice=='1':
+                send_text = 'make_me_a_tree'
+            elif choice=='2':
+                send_text ='get_env'
+            elif  choice=='3':
+                var = input("Имя переменной: ")
+                value = input("Значение: ")
+                send_text =f'set_env {var} {value}'
 
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            s.connect((self.host, self.port))
-            self.protocol_handler.send(s, send_text)
-            self.logger.info(f'send "{send_text}"')
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.connect((self.host, self.port))
+                self.protocol_handler.send(s, send_text)
+                self.logger.info(f'send "{send_text}"')
 
-            recv_text = self.protocol_handler.recv(s)
-            print(f"Получено {len(recv_text)} байт")
-            self.logger.info(f'recv ans')
-        
-        # Сохраняем в файл
-        if choice==1:
-            with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
-                f.write(recv_text)
-        else:
-            print(recv_text)
-        
-        self.logger.info(f'done!')
+                recv_text = self.protocol_handler.recv(s)
+                print(f"Получено {len(recv_text)} байт")
+                self.logger.info(f'recv ans')
+            
+            # Сохраняем в файл
+            if choice==1:
+                with open(f"{os.path.abspath(__file__)[:-7]}\\ans_client.json", "w+") as f:
+                    f.write(recv_text)
+            else:
+                print(recv_text)
+            
+            self.logger.info(f'done!')
 
         finally:
-        s.close()
+            s.close()
             self.logger.info("Client stopped")
 
 class SizeProtocol(RecvSendMsgsProtocol):
