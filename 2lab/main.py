@@ -13,26 +13,22 @@ app = FastAPI()
 async def root():
     return {"message": "it works"}
 
-# Добавление нового пользователя в бд
 @app.post(FastApiServerInfo.SIGN_UP_ENDPOINT)
 async def sign_up(user: User):
     token, id = None, None
     current_users = dict()
-    # Соединение с бд
+
     connect = sqlite3.connect(DB_PATH)
     cursor = connect.cursor()
-    # Запрос на поиск пользователя по почте
-    cursor.execute("SELECT * FROM Users WHERE email = ?", 
-                   (user.email,))
+
+    cursor.execute("SELECT * FROM Users WHERE email = ?", (user.email,))
     rows = cursor.fetchall()
     if not rows:
-        cursor.execute("INSERT INTO Users (email, password) VALUES (?, ?)", 
-                    (user.email, user.password))
+        cursor.execute("INSERT INTO Users (email, password) VALUES (?, ?)", (user.email, user.password))
         # словарь для return
         connect.commit()
         # id
-        cursor.execute("SELECT id FROM Users WHERE email = ? AND password = ?", 
-                    (user.email, user.password))
+        cursor.execute("SELECT id FROM Users WHERE email = ? AND password = ?", (user.email, user.password))
         id = cursor.fetchall()[0][0]
         # токен
         token = secrets.token_urlsafe()
@@ -55,12 +51,11 @@ logged_user = {
 @app.post(FastApiServerInfo.LOGIN_ENDPOINT)
 async def login(user: User):
     token, id = None, None
-    # Соезинение с бд
+    
     connect = sqlite3.connect(DB_PATH)
     cursor = connect.cursor()
     # поиск пользователя по паролю и почте
-    cursor.execute("SELECT * FROM Users WHERE email = ? AND password = ?", 
-                   (user.email,user.password))
+    cursor.execute("SELECT * FROM Users WHERE email = ? AND password = ?", (user.email,user.password))
     rows = cursor.fetchone()
     if rows:
         # данные о пользователе
@@ -74,11 +69,9 @@ async def login(user: User):
     
     connect.close()
 
-    return {
-        "id": logged_user["id"],
+    return {"id": logged_user["id"],
         "email": logged_user["email"],
-        "token": token
-    }
+        "token": token}
 
 @app.post(FastApiServerInfo.USER_INFO_ENDPOINT)
 async def login():
