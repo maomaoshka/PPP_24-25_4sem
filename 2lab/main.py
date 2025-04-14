@@ -43,7 +43,7 @@ async def sign_up(user: User):
 # информация авторизованного пользователя
 current_user = {
     "id": -1,
-    "email": "_@_._"}
+    "email": "bebebe"}
 
 # авторизация
 @app.post(FastApiServerInfo.LOGIN_ENDPOINT)
