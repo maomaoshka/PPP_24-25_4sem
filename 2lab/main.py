@@ -17,10 +17,10 @@ async def root():
 @app.post(FastApiServerInfo.SIGN_UP_ENDPOINT)
 async def sign_up(user: User):
     token, id = None, None
-    existing_users = dict()
+    current_users = dict()
     # Соединение с бд
-    connection = sqlite3.connect(DB_PATH)
-    cursor = connection.cursor()
+    connect = sqlite3.connect(DB_PATH)
+    cursor = connect.cursor()
     # Запрос на поиск пользователя по почте
     cursor.execute("SELECT * FROM Users WHERE email = ?", 
                    (user.email,))
@@ -29,7 +29,7 @@ async def sign_up(user: User):
         cursor.execute("INSERT INTO Users (email, password) VALUES (?, ?)", 
                     (user.email, user.password))
         # словарь для return
-        connection.commit()
+        connect.commit()
         # id
         cursor.execute("SELECT id FROM Users WHERE email = ? AND password = ?", 
                     (user.email, user.password))
@@ -37,14 +37,14 @@ async def sign_up(user: User):
         # токен
         token = secrets.token_urlsafe()
         # записываю в existing_users
-        existing_users[id] = {
+        current_users[id] = {
                 "id": id,
                 "email": user.email,
                 "token": token  
             }
         
-    connection.close()
-    return existing_users
+    connect.close()
+    return current_users
 
 # информация авторизованного пользователя
 logged_user = {
@@ -56,8 +56,8 @@ logged_user = {
 async def login(user: User):
     token, id = None, None
     # Соезинение с бд
-    connection = sqlite3.connect(DB_PATH)
-    cursor = connection.cursor()
+    connect = sqlite3.connect(DB_PATH)
+    cursor = connect.cursor()
     # поиск пользователя по паролю и почте
     cursor.execute("SELECT * FROM Users WHERE email = ? AND password = ?", 
                    (user.email,user.password))
@@ -69,10 +69,10 @@ async def login(user: User):
         logged_user["id"] = id
         logged_user["email"] = email
     else:
-        connection.close()
+        connect.close()
         return {"Message": "Incorrect password"}
     
-    connection.close()
+    connect.close()
 
     return {
         "id": logged_user["id"],
