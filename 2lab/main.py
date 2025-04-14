@@ -58,38 +58,31 @@ async def login(user: User):
     # Соезинение с бд
     connection = sqlite3.connect(DB_PATH)
     cursor = connection.cursor()
-    # Запрос на поиск пользователя по паролю и почте
+    # поиск пользователя по паролю и почте
     cursor.execute("SELECT * FROM Users WHERE email = ? AND password = ?", 
                    (user.email,user.password))
-    # Такой пользователь всегда один
     rows = cursor.fetchone()
     if rows:
-        # Распаковываю данные о пользователя
+        # данные о пользователе
         id, email, password = rows
-        # Генерирую токен
         token = secrets.token_urlsafe()
-        # Добавляю ответ
         logged_user["id"] = id
         logged_user["email"] = email
     else:
-        # Если введн не первый password, то возвращаю сообщение об ошибке
         connection.close()
         return {"Message": "Incorrect password"}
     
     connection.close()
-    # Вместо возврата logged
+
     return {
         "id": logged_user["id"],
         "email": logged_user["email"],
         "token": token
     }
 
-# Вывод информации об авторизованном пользователе
 @app.post(FastApiServerInfo.USER_INFO_ENDPOINT)
 async def login():
     return logged_user
 
 if __name__ == "__main__":
-    # Чтобы не прописывать каждый раз команду uvicorn main:app --host 127.0.0.1 --port 12000 
-    # и удобно устанавливать нужный IP и PORT, всё выношу в класс FastApiServerInfo в app/api/models
     uvicorn.run(app, host=FastApiServerInfo.IP, port=FastApiServerInfo.PORT)
