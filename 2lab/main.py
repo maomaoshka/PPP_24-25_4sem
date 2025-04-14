@@ -1,23 +1,23 @@
 from fastapi import FastAPI
-from app.schemas.schemas import User
+
 import secrets
-import sqlite3
 import uvicorn
+import sqlite3
+
 from app.api.endpoints import FastApiServerInfo
+from app.schemas.schemas import User
 
-DB_PATH = "app/db/database.db"
-
+DB_PATH = "app/db/database.db" # тут видимо надо будет тоже дописать штучку для линукса
 app = FastAPI()
 
 @app.get("/")
 async def root():
-    return {"message": "it works"}
+    return {"message": "it works!"} # просто проверка для себя
 
 @app.post(FastApiServerInfo.SIGN_UP_ENDPOINT)
 async def sign_up(user: User):
     token, id = None, None
     current_users = dict()
-
     connect = sqlite3.connect(DB_PATH)
     cursor = connect.cursor()
 
@@ -25,57 +25,54 @@ async def sign_up(user: User):
     rows = cursor.fetchall()
     if not rows:
         cursor.execute("INSERT INTO Users (email, password) VALUES (?, ?)", (user.email, user.password))
-        # словарь для return
         connect.commit()
-        # id
+        # айдишник
         cursor.execute("SELECT id FROM Users WHERE email = ? AND password = ?", (user.email, user.password))
         id = cursor.fetchall()[0][0]
         # токен
         token = secrets.token_urlsafe()
-        # записываю в existing_users
+        # записываю в current_users
         current_users[id] = {
                 "id": id,
                 "email": user.email,
                 "token": token  
             }
-        
     connect.close()
     return current_users
 
 # информация авторизованного пользователя
-logged_user = {
+current_user = {
     "id": -1,
-    "email": "_@_._"
-}
+    "email": "_@_._"}
+
 # авторизация
 @app.post(FastApiServerInfo.LOGIN_ENDPOINT)
 async def login(user: User):
     token, id = None, None
-    
     connect = sqlite3.connect(DB_PATH)
     cursor = connect.cursor()
-    # поиск пользователя по паролю и почте
+    # поиск пользователя по почте и паролю
     cursor.execute("SELECT * FROM Users WHERE email = ? AND password = ?", (user.email,user.password))
     rows = cursor.fetchone()
     if rows:
-        # данные о пользователе
+        # данные о пользователях
         id, email, password = rows
         token = secrets.token_urlsafe()
-        logged_user["id"] = id
-        logged_user["email"] = email
+        current_user["id"] = id
+        current_user["email"] = email
     else:
         connect.close()
         return {"Message": "Incorrect password"}
     
     connect.close()
 
-    return {"id": logged_user["id"],
-        "email": logged_user["email"],
+    return {"id": current_user["id"],
+        "email": current_user["email"],
         "token": token}
 
 @app.post(FastApiServerInfo.USER_INFO_ENDPOINT)
 async def login():
-    return logged_user
+    return current_user
 
 if __name__ == "__main__":
     uvicorn.run(app, host=FastApiServerInfo.IP, port=FastApiServerInfo.PORT)
