@@ -95,7 +95,7 @@ async def login(user: User):
         token = secrets.token_urlsafe()
     else:
         connection.close()
-        return {"Message": "Incorrect password"}
+        return {"Message": "неверный пароль("}
     
     connection.close()
     return {"id": id, "email": email, "token": token}

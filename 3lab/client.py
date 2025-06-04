@@ -25,13 +25,13 @@ class AsyncClient:
         self.active_tasks = list()
     async def show_notification(self, message: str):
         with patch_stdout():
-            print(f"[УВЕДОМЛЕНИЕ]: {message}")
+            print(f"{message}")
             sys.stdout.flush()
     
     async def safe_print(self, message: str):
         with patch_stdout():
             prefix = f"[{self.user_email.split('@')[0]}@{self.user_token}]" if self.user_token else "[guest@anon]"
-            print(f"{prefix} --> {message}\n", end="")
+            print(f"{prefix} {message}\n", end="")
             sys.stdout.flush()
     async def websocket_listener(self):
         while self.running:
