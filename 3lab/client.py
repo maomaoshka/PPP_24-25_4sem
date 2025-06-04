@@ -1,240 +1,135 @@
-# Асинхронность
 import asyncio
-# Для работы с HTTP сервером
 import httpx
-# Для работы с каналом Websocket
 import websockets
-# Для более стабильной обработки спсика команд 
 from typing import Dict, Callable
-# Для стабильной работы ввода в асинхронном приложении
 from prompt_toolkit import PromptSession
 from prompt_toolkit.patch_stdout import patch_stdout
-# Эндпоинты
 from app.api.endpoints import FastApiServerInfo
 from app.websocket.endpoints import WebsocketInfo
-# Настрйоки сервера (в идеале их бы захардкодить чтобы приложение могло работать где угодно) 
 from app.core.config import Settings
-# Небольшие и нужные импорты
 import json
 import os, sys
 
-# Класс приложения
 class AsyncClient:
     def __init__(self):
-        # Путь к серверу HTTP
         self.base_url = f"http://{Settings.IP}:{Settings.PORT}"
-        # Путь к серверу Celery + Redis  
         self.ws_url = f"ws://{Settings.IP}:{Settings.PORT}/ws/{WebsocketInfo.NOTIFICATIONS}"
-        # Уникальный токен пользователя
         self.user_token: str = None
-        # email пользователя
         self.user_email: str = None
-        # Состояние программы
         self.running = True
-        # PromtSession позволяет нормально работать с вводом в асинхронном приложении
         self.session = PromptSession()
-        # Список команд
-        self.commands: Dict[str, Callable] = {
-            "login": self.login,
-            "registr": self.register,
-            "task": self.create_task,
-            "cls": self.clear_console,
-            "exit": self.exit,
-            "bin": self.bin
-        }
-        # Задача Websocket
+        self.commands: Dict[str, Callable] = {"login": self.login, "registr": self.register, \
+            "cls": self.clear_console, "exit": self.exit, "bin": self.bin}
         self.ws_task: asyncio.Task = None
-        # Задача внутри консоли пользователя
         self.input_task: asyncio.Task = None
-        # Список активныз задач с уведомелниями от Websocket
         self.active_tasks = list()
-    # Функция вывода уведомлений от задач с Websocket
     async def show_notification(self, message: str):
         with patch_stdout():
             print(f"[УВЕДОМЛЕНИЕ]: {message}")
             sys.stdout.flush()
     
-    # Префикс перед каждой вводимой командо 
-    # формат [имя_пользователя@уникальный_токен]
     async def safe_print(self, message: str):
         with patch_stdout():
             prefix = f"[{self.user_email.split('@')[0]}@{self.user_token}]" if self.user_token else "[guest@anon]"
             print(f"{prefix} --> {message}\n", end="")
             sys.stdout.flush()
-    # Слушатель канала Websocket
     async def websocket_listener(self):
         while self.running:
             try:
-                # Подключение к каналу Websocket
                 async with websockets.connect(self.ws_url) as ws:
                     async for message in ws:
                         data = json.loads(message)
-                        # Смотрю на id задачи уведомление которой получил
-                        # если она совпадает с id какой-то активной задачи закрпелнной за клиентом
-                        # то вывожу уведомление и удаляю из id из активных задач 
                         if data['task_id'] in self.active_tasks:
                             await self.show_notification(json.dumps(data, ensure_ascii=False))
-                            # Как только задача выоплнена - она удаляется из списка активных задач пользователя
                             if data["status"] == "done":
                                 self.active_tasks.remove(data['task_id'])
-
             except Exception as e:
                 await self.safe_print(f"WebSocket error: {str(e)}")
                 await asyncio.sleep(5)
-    # Функция авторизации
+    # авторизация
     async def login(self):
-        email = await self.session.prompt_async("Email: ")
-        # В password скртый ввод 
-        password = await self.session.prompt_async("Password: ", is_password=True)
+        email = await self.session.prompt_async("e-mail: ")
+        password = await self.session.prompt_async("password: ", is_password=True)
         self.session.is_password = False
-        # Асинхронная работа с сервером HTTP
         async with httpx.AsyncClient() as client:
             try:
-                # отправляю запрос
-                response = await client.post(
-                    # В какой эндпоинт
-                    f"{self.base_url}{FastApiServerInfo.LOGIN_ENDPOINT}",
-                    # Тело запроса
-                    json={"email": email, "password": password}
-                )
-                # Обработка статусов запроса
-                # Все хорошо, сразу же авторизуем нового пользователя
+                response = await client.post(f"{self.base_url}{FastApiServerInfo.LOGIN_ENDPOINT}",
+                    json={"email": email, "password": password})
                 if response.status_code == 200:
                     data = response.json()
                     self.user_token = data['token']
                     self.user_email = data['email']
-                    await self.safe_print("Успешная авторизация!")
+                    await self.safe_print("пользователь авторизован")
                 else:
-                    await self.safe_print(f"Ошибка: {response.text}")
+                    await self.safe_print(f"произошла ошибка: {response.text}")
                     
             except Exception as e:
-                await self.safe_print(f"Ошибка соединения: {str(e)}")
-    # Функция регистрации нового пользователя
+                await self.safe_print(f"ошибка соединения: {str(e)}")
+    # регистрация
     async def register(self):
-        email = await self.session.prompt_async("Email: ")
-        # В password скртый ввод 
-        password = await self.session.prompt_async("Password: ", is_password=True)
+        email = await self.session.prompt_async("e-mail: ")
+        password = await self.session.prompt_async("password: ", is_password=True)
         self.session.is_password = False
-        # Асинхронная работа с сервером HTTP
         async with httpx.AsyncClient() as client:
             try:
-                # отправляю запрос
-                response = await client.post(
-                    # В какой эндпоинт
-                    f"{self.base_url}{FastApiServerInfo.SIGN_UP_ENDPOINT}",
-                    # Тело запроса
-                    json={"email": email, "password": password}
-                )
-                # Обработка статусов запроса
-                # Все хорошо, сразу же авторизуем нового пользователя
+                response = await client.post(f"{self.base_url}{FastApiServerInfo.SIGN_UP_ENDPOINT}",
+                    json={"email": email, "password": password})
                 if response.status_code == 200:
                     data = response.json()
                     self.user_token = data['token']
                     self.user_email = data['email']
-                    await self.safe_print("Регистрация успешна!")
+                    await self.safe_print("новый пользователь зарегистрирован")
                 else:
-                    await self.safe_print(f"Ошибка: {response.text}")
-                    
+                    await self.safe_print(f"произошла ошибка: {response.text}")
             except Exception as e:
-                await self.safe_print(f"Ошибка соединения: {str(e)}")
+                await self.safe_print(f"ошибка соединения: {str(e)}")
     
-    # Тестовая фунцкия требующая уведомлений через websocket + redis
-    async def create_task(self):
-        # Тестовый ввод
-        # url = await self.session.prompt_async("Тестовый ввод: ")
-        # Асинхронная работа с сервером HTTP
-        async with httpx.AsyncClient() as client:
-            try:
-                # Если не произведена авторизация, то запрещается выполнять заадчу
-                # потому что задача привязана к пользователю и, в случае двух неавторизованных пользователей
-                # обоим будут приходить уведомления о задачах друг друга 
-                if not self.user_token:
-                    raise Exception("Необходима авторизация!") 
-                # отправляю запрос
-                response = await client.post(
-                    # В какой эндпоинт
-                    f"{self.base_url}/tasks/parse",
-                    # Сам запрос
-                    json = {}, # {"url": url},
-                    # Заголовок запроса с токеном пользователя
-                    headers={"Authorization": f"Bearer {self.user_token}"}
-                )
-                # Закидываю соответствующий клиенту id в активные задачи 
-                self.active_tasks.append(response.json().get('task_id'))
-                
-            except Exception as e:
-                await self.safe_print(f"Ошибка: {str(e)}")
-
+    # функция под бинаризацию картинок
     async def bin(self):
-        # ввод
-        name = await self.session.prompt_async("Имя изображения: ")
-        URL = await self.session.prompt_async("URL изображения: ")
-        # Асинхронная работа с сервером HTTP
+        name = await self.session.prompt_async("имя файла: ")
+        URL = await self.session.prompt_async("URL картинки: ")
         async with httpx.AsyncClient() as client:
             try:
-                # Если не произведена авторизация, то запрещается выполнять заадчу
-                # потому что задача привязана к пользователю и, в случае двух неавторизованных пользователей
-                # обоим будут приходить уведомления о задачах друг друга 
                 if not self.user_token:
-                    raise Exception("Необходима авторизация!") 
-                # отправляю запрос
+                    raise Exception("пройдите авторизацию") 
                 response = await client.post(
-                    # В какой эндпоинт
                     f"{self.base_url}/tasks/{WebsocketInfo.BINARIZATION}",
-                    # Сам запрос
-                    json = {"image_name": name,
-                            "image_url": URL}, # {"url": url},
-                    # Заголовок запроса с токеном пользователя
-                    headers={"Authorization": f"Bearer {self.user_token}"}
-                )
-                # Закидываю соответствующий клиенту id в активные задачи 
+                    json = {"image_name": name, "image_url": URL}, headers={"Authorization": f"Bearer {self.user_token}"})
                 self.active_tasks.append(response.json().get('task_id'))
-                
+                # тут айдишник летит в список задач на выполнение
             except Exception as e:
-                await self.safe_print(f"Ошибка: {str(e)}") 
-   
-    # Функция команды очистки консоли
+                await self.safe_print(f"произошла ошибка: {str(e)}") 
+    
     async def clear_console(self):
         os.system("cls" if os.name == "nt" else "clear")
-        await self.safe_print("Консоль очищена")
-    # Функция команды завершения работы клиента
+        await self.safe_print("почистили мусор")
+
     async def exit(self):
         self.running = False
-        await self.safe_print("Завершение работы...")
+        await self.safe_print("пока-пока!")
         sys.exit()
-    # Обработчик всех вводимых команд
+
     async def command_handler(self):
         while self.running:
             try:
-                command = await self.session.prompt_async(
-                    "Введите команду: ",
-                    refresh_interval=0.1
-                )
+                command = await self.session.prompt_async("чего желаете? ", refresh_interval=0.1)
                 
                 if command in self.commands:
                     await self.commands[command]()
                 elif command == "help":
-                    await self.safe_print("Доступные команды: " + ", ".join(self.commands))
+                    await self.safe_print("список команд: " + ", ".join(self.commands))
                 else:
-                    await self.safe_print("Неизвестная команда")
+                    await self.safe_print("такой команды нет")
 
-                    
             except KeyboardInterrupt:
                 await self.exit()
             except Exception as e:
-                await self.safe_print(f"Ошибка: {str(e)}")
-    # Оснвоная функция приложения
+                await self.safe_print(f"произошла ошибка: {str(e)}")
+    
     async def run(self):
-        # Цикл для прослушки канала Websocket
         self.ws_task = asyncio.create_task(self.websocket_listener())
-        # Цикл для обработки задач пользователя
         self.input_task = asyncio.create_task(self.command_handler())
-        
-        await asyncio.gather(
-            self.ws_task,
-            self.input_task,
-            return_exceptions=True
-        )
+        await asyncio.gather(self.ws_task, self.input_task, return_exceptions=True)
 
 if __name__ == "__main__": 
     client = AsyncClient()
