@@ -10,10 +10,7 @@ from redis import Redis
 @celery_app.task(bind=True, name="app.celery.tasks.run_bin")
 def binarization(self, name: str, url: str, readFlag=cv2.IMREAD_COLOR):
     r = Redis(host=Settings.REDIS_HOST, port=Settings.REDIS_PORT, db=0)
-    result = {
-        "status": "HERE WE GOOOO",
-        "task_id": self.request.id,
-    }
+    result = {"status": "HERE WE GOOOO","task_id": self.request.id,}
     r.publish("notifications", json.dumps(result))
     # бинаризация
     resp = urlopen(url)
